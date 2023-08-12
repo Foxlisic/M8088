@@ -1,5 +1,8 @@
 
         org     0
-        std
-        cld
+        mov     dx, $2234
+        push    dx
+        pop     di
+
+A1:     dw      $BFEA
 

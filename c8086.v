@@ -12,6 +12,7 @@ module c8086
     input        [ 7:0] in,                 // in = ram[address]
     output  reg  [ 7:0] out,
     output  reg         we,
+    output              m0,                 // M0-считывание инструкции
 
     // Порты ввода-вывода
     output  reg  [15:0] port_address,
@@ -28,6 +29,7 @@ module c8086
 
 // Выбор текущего адреса, segment_id[2] = 1 означает прерывание
 assign address = cp ? {segment, 4'h0} + ea : {cs, 4'h0} + ip;
+assign m0 = (fn == START);
 
 localparam
 
@@ -93,10 +95,14 @@ if (reset_n == 1'b0) begin
 
     fn      <= START;
     cs      <= 16'hF000;
+    es      <= 16'h0000;
+    ds      <= 16'h0000;
     ss      <= 16'h0000;
     sp      <= 16'h0000;
     ip      <= 16'hFFF0;
     iack    <= 1'b0;
+    //             ODIT SZ A  P C
+    flags   <= 12'b0000_0000_0010;
 
 end
 else if (ce) begin
@@ -116,7 +122,6 @@ else if (ce) begin
             s2          <= 0;
             cp          <= 0;           // address = CS:IP
             cpen        <= 1;           // Считывать из памяти modrm rm-часть
-            opcode      <= 0;
             modrm       <= 0;
             segment     <= ds;          // Значение сегмента по умолчанию DS:
             over        <= 1'b0;        // Наличие сегментного префикса
@@ -545,8 +550,9 @@ else if (ce) begin
             end
             8'b01011xxx: begin              // POP r
 
-                fn  <= WBACK;
-                dir <= 1;
+                fn   <= WBACK;
+                size <= 1;
+                dir  <= 1;
                 modrm[5:3] <= opcode[2:0];
 
             end
@@ -554,7 +560,7 @@ else if (ce) begin
 
                 fn <= START;
 
-                case (in[4:3])
+                case (opcode[4:3])
                 2'b00: es <= wb;
                 2'b01: cs <= wb;
                 2'b10: ss <= wb;
@@ -773,13 +779,12 @@ else if (ce) begin
             end
             8'b10011010: case (s2)          // CALLF b16
 
-                0: begin ip <= ip + 1; op1[ 7:0] <= in; s2 <= 1; end
-                1: begin ip <= ip + 1; op1[15:8] <= in; s2 <= 2; end
-                2: begin ip <= ip + 1; op2[ 7:0] <= in; s2 <= 3; end
-                3: begin ip <= ip + 1; op2[15:8] <= in; s2 <= 4;
-                         fn <= PUSH; wb <= cs; fnext <= INSTR; end
-                4: begin fn <= PUSH; wb <= ip; s2 <= 5; fnext <= INSTR; end
-                5: begin ip <= op1;  cs <= op2; fn <= START; end
+                0: begin s2 <= 1;   ip <= ip + 1; op1[ 7:0] <= in; end
+                1: begin s2 <= 2;   ip <= ip + 1; op1[15:8] <= in; end
+                2: begin s2 <= 3;   ip <= ip + 1; op2[ 7:0] <= in; end
+                3: begin s2 <= 4;   ip <= ip + 1; op2[15:8] <= in; fn <= PUSH; wb <= cs; fnext <= INSTR; end
+                4: begin s2 <= 5;   fn <= PUSH;  wb <= ip; fnext <= INSTR; end
+                5: begin ip <= op1; fn <= START; cs <= op2;  end
 
             endcase
             8'b1100010x: case (s2)          // LES|LDS r,m
@@ -937,7 +942,8 @@ else if (ce) begin
             8'b1111111x: case (modrm[5:3])  // Grp#4|5
 
                 // INC|DEC rm
-                0, 1: case (s2)
+                0,
+                1: case (s2)
 
                     0: begin s2 <= 1; op2 <= 1; alu <= modrm[3] ? ALU_SUB : ALU_ADD; end
                     1: begin fn <= WBACK; wb <= alu_r; flags <= alu_f; end
@@ -946,9 +952,11 @@ else if (ce) begin
 
                 // CALL rm
                 2: begin
+
                     ip <= op1;
                     wb <= ip;
                     fn <= size ? PUSH : UNDEF;
+
                 end
 
                 // CALL far rm
@@ -1012,26 +1020,9 @@ else if (ce) begin
             endcase
             8'b1010110x: case (s2)          // LODSx
 
-                0: begin
-
-                    s2 <= 1;
-                    cp <= 1;
-                    ea <= si;
-
-                end
-                1: begin
-
-                    s2      <= size ? 2 : 3;
-                    ea      <= ea + 1;
-                    ax[7:0] <= in;
-
-                end
-                2: begin
-
-                    s2       <= 3;
-                    ax[15:8] <= in;
-
-                end
+                0: begin s2 <= 1; cp <= 1;   ea <= si; end
+                1: begin s2 <= size ? 2 : 3; ea <= ea + 1; ax[7:0] <= in; end
+                2: begin s2 <= 3; ax[15:8] <= in; end
                 3: begin
 
                     fn      <= rep[1] ? REPF : START;
@@ -1200,87 +1191,29 @@ else if (ce) begin
 
             end
 
-            // Запись 16 бит?
-            1: if (size) begin
-
-                s1  <= 2;
-                ea  <= ea + 1;
-                out <= wb[15:8];
-
-            end
-            // Завершение записи 8 бит
-            else begin
-
-                s1 <= 0;
-                cp <= 0;
-                we <= 0;
-                fn <= fnext;
-
-            end
-
-            // Запись 16 бит закончена
-            2: begin
-
-                we <= 0;
-                s1 <= 0;
-                cp <= 0;
-                fn <= fnext;
-
-            end
+            // Запись 16 бит | Либо завершение 8/16 бит записи
+            1: if (size) begin size <= 0; ea <= ea + 1; out <= wb[15:8]; end
+               else      begin s1   <= 0; cp <= 0; we <= 0; fn <= fnext; end
 
         endcase
 
-        // Запись в стек <- wb | cp,wb,wb_reg,segment_id,ea,size
+        // Запись в стек <= wb [cp,ea,segment]
         // -------------------------------------------------------------
         PUSH: case (s1)
 
-            0: begin
-
-                s1      <= 1;
-                segment <= ss;
-                ea      <= sp - 2;
-                cp      <= 1;
-                out     <= wb[7:0];
-                we      <= 1;
-
-            end
-            1: begin
-
-                s1      <= 2;
-                out     <= wb[15:8];
-                size    <= 1;
-                ea      <= ea + 1;
-
-            end
-            2: begin
-
-                s1      <= 0;
-                we      <= 0;
-                cp      <= 0;
-                sp      <= sp - 2;
-                fn      <= fnext;
-
-            end
+            0: begin s1 <= 1; out <= wb[ 7:0]; ea <= sp - 2; we <= 1; cp <= 1; segment <= ss; end
+            1: begin s1 <= 2; out <= wb[15:8]; ea <= ea + 1; end
+            2: begin s1 <= 0; we  <= 0; cp <= 0; sp <= sp - 2; fn <= fnext; end
 
         endcase
 
-        // Чтение из стека -> wb | cp,wb,wb_reg,segment_id,ea,size
+        // Чтение из стека => wb [cp,ea,segment]
         // -------------------------------------------------------------
         POP: case (s1)
 
-            0: begin
-
-                s1      <= 1;
-                segment <= ss;
-                ea      <= sp;
-                cp      <= 1;
-                sp      <= sp + 2;
-                size    <= 1;
-
-            end
-
+            0: begin s1 <= 1; segment  <= ss; ea <= sp; cp <= 1; end
             1: begin s1 <= 2; wb[ 7:0] <= in; ea <= ea + 1; end
-            2: begin s1 <= 0; wb[15:8] <= in; cp <= 0; fn <= fnext; end
+            2: begin s1 <= 0; wb[15:8] <= in; cp <= 0; sp <= sp + 2; fn <= fnext; end
 
         endcase
 

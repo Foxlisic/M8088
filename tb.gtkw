@@ -1,25 +1,28 @@
 [*]
-[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
-[*] Sat Aug 12 06:17:29 2023
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sat Aug 12 19:43:14 2023
 [*]
-[dumpfile] "/disk/vdisk/dev/mic8086/tb.vcd"
-[dumpfile_mtime] "Sat Aug 12 06:13:51 2023"
-[dumpfile_size] 62267
-[savefile] "/disk/vdisk/dev/mic8086/tb.gtkw"
-[timestart] 0
-[size] 2558 1385
+[dumpfile] "e:\dev\mic8086\tb.vcd"
+[dumpfile_mtime] "Sat Aug 12 19:41:40 2023"
+[dumpfile_size] 58749
+[savefile] "e:\dev\mic8086\tb.gtkw"
+[timestart] 542
+[size] 1280 612
 [pos] -1 -1
-*-7.000000 319 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-7.000000 943 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [sst_width] 264
 [signals_width] 197
 [sst_expanded] 1
-[sst_vpaned_height] 445
+[sst_vpaned_height] 142
 @28
 [color] 5
 tb.reset_n
 tb.clock_hi
 tb.clock_25
+@29
+[color] 2
+tb.CPU.m0
 @800200
 -MEMORY
 @22
@@ -72,7 +75,11 @@ tb.CPU.opcode[7:0]
 (7)tb.CPU.opcode[7:0]
 @1401200
 -group_end
-@c00023
+@1000200
+-CONTROL
+@800200
+-ALU
+@c00022
 tb.CPU.flags[11:0]
 @28
 (0)tb.CPU.flags[11:0]
@@ -87,12 +94,8 @@ tb.CPU.flags[11:0]
 (9)tb.CPU.flags[11:0]
 (10)tb.CPU.flags[11:0]
 (11)tb.CPU.flags[11:0]
-@1401201
+@1401200
 -group_end
-@1000200
--CONTROL
-@c00200
--ALU
 @22
 tb.CPU.op1[15:0]
 tb.CPU.op2[15:0]
@@ -113,6 +116,7 @@ tb.CPU.modrm[7:0]
 (7)tb.CPU.modrm[7:0]
 @1401200
 -group_end
+@1000200
 -ALU
 @800200
 -SEG
