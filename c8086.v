@@ -93,6 +93,8 @@ if (reset_n == 1'b0) begin
 
     fn      <= START;
     cs      <= 16'hF000;
+    ss      <= 16'h0000;
+    sp      <= 16'h0000;
     ip      <= 16'hFFF0;
     iack    <= 1'b0;
 
@@ -174,7 +176,8 @@ else if (ce) begin
                 8'b00001111,
                 8'b0110010x,
                 8'b0110011x,
-                // LOCK: FWAIT
+                // NOP, LOCK: FWAIT
+                8'b10010000,
                 8'b10011011,
                 8'b11110000: begin /* LOAD */ end
                 // ALU rm | ALU a,imm
@@ -196,10 +199,12 @@ else if (ce) begin
                 // XCHG r, a
                 8'b10010xxx: begin
 
-                    fn      <= INSTR;
-                    op1     <= ax;
-                    op2     <= rin;
-                    size    <= 1;
+                    fn          <= WBACK;
+                    ax          <= rin;
+                    wb          <= ax;
+                    dir         <= 1;
+                    size        <= 1;
+                    modrm[5:3]  <= in[2:0];
 
                 end
                 // PUSH r
@@ -501,7 +506,14 @@ else if (ce) begin
                 end
 
                 // 16 bit
-                1: begin wb[15:8] <= in; ip <= ip + 1; cp <= 1; fn <= WBACK; end
+                1: begin
+
+                    fn          <= WBACK;
+                    cp          <= 1;
+                    ip          <= ip + 1;
+                    wb[15:8]    <= in;
+
+                end
 
             endcase
             8'b10001101: begin              // LEA r16, m
@@ -531,15 +543,9 @@ else if (ce) begin
                 flags       <= {alu_f[11:1], flags[CF]};
 
             end
-            8'b10010xxx: case (s2)          // XCHG ax, r16
-
-                0: begin s2 <= 1;     ax <= op2; end
-                1: begin fn <= WBACK; wb <= op1; end
-
-            endcase
             8'b01011xxx: begin              // POP r
 
-                fn <= WBACK;
+                fn  <= WBACK;
                 dir <= 1;
                 modrm[5:3] <= opcode[2:0];
 
@@ -740,7 +746,9 @@ else if (ce) begin
             endcase
             8'b10001100: begin              // MOV rm,s
 
-                fn  <= WBACK;
+                fn   <= WBACK;
+                size <= 1;
+
                 case (modrm[4:3])
                 2'b00: wb <= es;
                 2'b01: wb <= cs;
@@ -1237,7 +1245,6 @@ else if (ce) begin
 
                 s1      <= 2;
                 out     <= wb[15:8];
-                sp      <= sp - 2;
                 size    <= 1;
                 ea      <= ea + 1;
 
@@ -1247,6 +1254,7 @@ else if (ce) begin
                 s1      <= 0;
                 we      <= 0;
                 cp      <= 0;
+                sp      <= sp - 2;
                 fn      <= fnext;
 
             end
