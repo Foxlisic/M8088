@@ -1,0 +1,135 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Sat Aug 12 05:44:17 2023
+[*]
+[dumpfile] "/disk/vdisk/dev/mic8086/tb.vcd"
+[dumpfile_mtime] "Sat Aug 12 05:43:26 2023"
+[dumpfile_size] 63333
+[savefile] "/disk/vdisk/dev/mic8086/tb.gtkw"
+[timestart] 0
+[size] 2558 1385
+[pos] -1 -1
+*-7.000000 114 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[sst_width] 264
+[signals_width] 197
+[sst_expanded] 1
+[sst_vpaned_height] 445
+@28
+[color] 5
+tb.reset_n
+tb.clock_hi
+tb.clock_25
+@c00200
+-MEMORY
+@22
+tb.address[19:0]
+tb.in[7:0]
+tb.out[7:0]
+@28
+tb.we
+@1401200
+-MEMORY
+@800201
+-CONTROL
+@29
+tb.CPU.cp
+@23
+tb.CPU.fn[3:0]
+tb.CPU.s1[3:0]
+tb.CPU.s2[3:0]
+@c00023
+tb.CPU.ip[15:0]
+@28
+(0)tb.CPU.ip[15:0]
+(1)tb.CPU.ip[15:0]
+(2)tb.CPU.ip[15:0]
+(3)tb.CPU.ip[15:0]
+(4)tb.CPU.ip[15:0]
+(5)tb.CPU.ip[15:0]
+(6)tb.CPU.ip[15:0]
+(7)tb.CPU.ip[15:0]
+(8)tb.CPU.ip[15:0]
+(9)tb.CPU.ip[15:0]
+(10)tb.CPU.ip[15:0]
+(11)tb.CPU.ip[15:0]
+(12)tb.CPU.ip[15:0]
+(13)tb.CPU.ip[15:0]
+(14)tb.CPU.ip[15:0]
+(15)tb.CPU.ip[15:0]
+@1401201
+-group_end
+@c00023
+tb.CPU.opcode[7:0]
+@28
+(0)tb.CPU.opcode[7:0]
+(1)tb.CPU.opcode[7:0]
+(2)tb.CPU.opcode[7:0]
+(3)tb.CPU.opcode[7:0]
+(4)tb.CPU.opcode[7:0]
+(5)tb.CPU.opcode[7:0]
+(6)tb.CPU.opcode[7:0]
+(7)tb.CPU.opcode[7:0]
+@1401201
+-group_end
+@1000201
+-CONTROL
+@c00200
+-ALU
+@22
+tb.CPU.op1[15:0]
+tb.CPU.op2[15:0]
+@28
+tb.CPU.size
+@22
+tb.CPU.wb[15:0]
+@c00022
+tb.CPU.modrm[7:0]
+@28
+(0)tb.CPU.modrm[7:0]
+(1)tb.CPU.modrm[7:0]
+(2)tb.CPU.modrm[7:0]
+(3)tb.CPU.modrm[7:0]
+(4)tb.CPU.modrm[7:0]
+(5)tb.CPU.modrm[7:0]
+(6)tb.CPU.modrm[7:0]
+(7)tb.CPU.modrm[7:0]
+@1401200
+-group_end
+-ALU
+@c00200
+-SEG
+@22
+[color] 5
+tb.CPU.es[15:0]
+[color] 5
+tb.CPU.ds[15:0]
+[color] 5
+tb.CPU.ss[15:0]
+[color] 5
+tb.CPU.cs[15:0]
+@1401200
+-SEG
+@c00200
+-REG
+@22
+[color] 5
+tb.CPU.ax[15:0]
+[color] 5
+tb.CPU.bx[15:0]
+[color] 5
+tb.CPU.cx[15:0]
+[color] 5
+tb.CPU.dx[15:0]
+[color] 5
+tb.CPU.sp[15:0]
+[color] 5
+tb.CPU.bp[15:0]
+[color] 5
+tb.CPU.si[15:0]
+[color] 5
+tb.CPU.di[15:0]
+@1401200
+-REG
+[pattern_trace] 1
+[pattern_trace] 0
