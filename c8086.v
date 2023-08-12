@@ -214,13 +214,13 @@ else if (ce) begin
                     wb  <= rin;
 
                 end
-                // POP xxx
+                // POP r,s,etc.
                 8'b01011xxx, // POP r
                 8'b000xx111, // POP s
                 8'b10011101, // POPF
                 8'b1100101x, // RETF [i]
-                8'b1x001111, // POP rm | IRET
-                8'b1100001x: begin fn <= POP; fnext <= INSTR; end // RET [i]
+                8'b1x001111, // POP rm; IRET; RET [i]
+                8'b1100001x: begin fn <= POP; fnext <= INSTR; end
                 // PUSH s
                 8'b00000110: begin fn <= PUSH; wb <= es; end
                 8'b00001110: begin fn <= PUSH; wb <= cs; end
@@ -570,8 +570,8 @@ else if (ce) begin
                 2: begin s2 <= 3;
 
                     case (opcode[1:0])
-                        2'b01: begin op2[15:8] <= in; ip <= ip + 1; end // imm16
-                        2'b11: begin op2[15:8] <= {8{op2[7]}}; end // sign8
+                    2'b01: begin op2[15:8] <= in; ip <= ip + 1; end // imm16
+                    2'b11: begin op2[15:8] <= {8{op2[7]}}; end      // sign8
                     endcase
 
                 end
@@ -633,6 +633,7 @@ else if (ce) begin
 
                 fn      <= START;
                 flags   <= {wb[11:2], 1'b1, wb[0]};
+
             end
             8'b1010100x: case (s2)          // TEST a,i
 
@@ -653,16 +654,18 @@ else if (ce) begin
 
             end
             8'b11101001: case (s2)          // JMP b16
-                0: begin s2 <= 1; ea <= in; ip <= ip + 1; end
+
+                0: begin s2 <= 1;     ip <= ip + 1; ea[7:0] <= in; end
                 1: begin fn <= START; ip <= ip + 1 + {in, ea[7:0]}; end
+
             endcase
             8'b11101010: case (s2)          // JMP far
 
                 // Прочитаьть 4 байта для нового CS:IP
-                0: begin ip <= ip + 1; s2 <= 1; ea <= in; end
+                0: begin ip <= ip + 1; s2 <= 1; ea       <= in; end
                 1: begin ip <= ip + 1; s2 <= 2; ea[15:8] <= in; end
-                2: begin ip <= ip + 1; s2 <= 3; op1 <= in; end
-                3: begin ip <= ea; cs <= {in, op1[7:0]}; fn <= START; end
+                2: begin ip <= ip + 1; s2 <= 3; op1      <= in; end
+                3: begin ip <= ea;     cs <= {in, op1[7:0]}; fn <= START; end
 
             endcase
             8'b111000xx: begin              // LOOP[NZ|Z], JCXZ
@@ -690,6 +693,7 @@ else if (ce) begin
 
                 fn <= START;
                 ip <= wb;
+
             end
             8'b11000010: case (s2)          // RET i16
 
@@ -709,14 +713,15 @@ else if (ce) begin
             8'b11001011: case (s2)          // RETF
 
                 0: begin s2 <= 1; op1 <= wb; fn <= POP; end
-                1: begin s2 <= 2; cs <= wb; ip <= op1; fn <= START; end
+                1: begin s2 <= 2; cs  <= wb; ip <= op1; fn <= START; end
 
             endcase
             8'b11001010: case (s2)          // RETF i16
 
                 // Младший байт
-                0: begin s2 <= 1;
+                0: begin
 
+                    s2  <= 1;
                     fn  <= POP;
                     op1 <= wb;
                     op2 <= in;
@@ -728,11 +733,9 @@ else if (ce) begin
                 1: begin
 
                     fn <= START;
-                    sp <= sp + {in, op2[7:0]};
-
-                    // Установка нового CS:IP из стека
                     cs <= wb;
                     ip <= op1;
+                    sp <= sp + {in, op2[7:0]};
 
                 end
 
