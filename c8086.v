@@ -128,8 +128,6 @@ else if (ce) begin
             rep         <= 2'b0;        // Нет префикса REP:
             ea          <= 0;           // Эффективный адрес
             we          <= 0;           // Разрешение записи
-            dir         <= 0;           // Ширина операнда 0=8, 1=16
-            size        <= 0;           // Направление 0=[rm,r], 1=[r,rm]
             rep_ft      <= 0;           // =0 REP, =1 REPZ|NZ
             wb          <= 0;           // Данные на запись (modrm | reg)
             ip_start    <= ip;          // Для REP:
@@ -189,8 +187,8 @@ else if (ce) begin
                 8'b00xxx0xx: begin fn <= MODRM; end
                 8'b00xxx10x: begin fn <= INSTR; end
                 // MOV rm, i | LEA r, m
-                8'b1100011x,
-                8'b10001101: begin fn <= INSTR; cpen <= 0; end
+                8'b1100011x: begin fn <= INSTR; cpen <= 0; end
+                8'b10001101: begin fn <= MODRM; cpen <= 0; end
                 // INC | DEC r
                 8'b0100xxxx: begin
 
@@ -274,9 +272,6 @@ else if (ce) begin
                     dx  <= {16{ax[15]}};
 
                 end
-                // LOOP|NZ|Z
-                8'b1110000x,
-                8'b11100010: begin fn <= INSTR; cx <= cx - 1; end
                 // MOV s,rm
                 8'b10001110: begin fn <= MODRM; size <= 1; end
                 // XLATB
@@ -291,6 +286,26 @@ else if (ce) begin
                 8'b1111x11x,
                 8'b1100000x,
                 8'b110100xx: begin fn <= MODRM; dir <= 0; end
+                // Jccc; JCXZ
+                8'b0111xxxx,
+                8'b11100011: begin
+
+                    if ((branches[ in[3:1] ] == in[0] && !in[7]) || (in[7] && cx))
+                         begin fn <= START; ip <= ip + 2; end
+                    else begin fn <= INSTR; end
+
+                end
+                // LOOP[NZ|Z]
+                8'b111000xx: begin
+
+                    // Если бит 1 равен 1, то ZF=bit[0] не имеет значения
+                    if ((cx == 1) && (in[1] || flags[ZF] == in[0]))
+                         begin fn <= START; ip <= ip + 2; end
+                    else begin fn <= INSTR; end
+
+                    cx <= cx - 1;
+
+                end
                 // Определить наличие байта ModRM для опкода
                 default: casex (in)
 
@@ -523,20 +538,10 @@ else if (ce) begin
             endcase
             8'b10001101: begin              // LEA r16, m
 
-                wb  <= ea;
-                dir <= 1;
-                fn  <= WBACK;
-
-            end
-            8'b0111xxxx: begin              // Jccc
-
-                // Проверка на выполнение условия в branches
-                if (branches[ opcode[3:1] ] ^ opcode[0])
-                    ip <= ip + 1 + signex;
-                else
-                    ip <= ip + 1;
-
-                fn <= START;
+                wb   <= ea;
+                size <= 1;
+                dir  <= 1;
+                fn   <= WBACK;
 
             end
             8'b0100xxxx: begin              // INC | DEC r16
@@ -595,16 +600,16 @@ else if (ce) begin
             8'b101000xx: case (s2)          // MOV a,[m] | [m],a
 
                 // Прочесть адрес
-                0: begin ea[7:0]  <= in; ip <= ip + 1; s2 <= 1; end
+                0: begin ea[ 7:0] <= in; ip <= ip + 1; s2 <= 1; end
                 1: begin ea[15:8] <= in; ip <= ip + 1; cp <= 1; s2 <= dir ? 2 : 5; end
 
                 // Запись A в память
-                2: begin s2 <= 3; we <= 1;    out <= ax[ 7:0]; end
-                3: begin s2 <= 4; we <= size; out <= ax[15:8]; ea <= ea + 1; end
+                2: begin we <= 1; out <= ax[ 7:0]; s2 <= size ? 3 : 4; end
+                3: begin we <= 1; out <= ax[15:8]; s2 <= 4; ea <= ea + 1; end
                 4: begin fn <= START; we <= 0; end
 
                 // Чтение A из памяти
-                5: begin s2 <= 6;     ax[ 7:0] <= in; ea <= ea + 1; if (size == 0) fn <= START; end
+                5: begin s2 <= 6;     ax[ 7:0] <= in; ea <= ea + 1; if (!size) fn <= START; end
                 6: begin fn <= START; ax[15:8] <= in; end
 
             endcase
@@ -618,18 +623,18 @@ else if (ce) begin
 
                 0: begin
 
-                    s2      <= 1;
-                    dir     <= 1;
                     fn      <= WBACK;
                     fnext   <= INSTR;
+                    s2      <= 1;
+                    dir     <= 1;
                     wb      <= op1;
 
                 end
                 1: begin
 
-                    dir     <= 0;
                     fn      <= WBACK;
                     fnext   <= START;
+                    dir     <= 0;
                     wb      <= op2;
 
                 end
@@ -653,6 +658,8 @@ else if (ce) begin
                 2: begin flags <= alu_f; fn <= START; end
 
             endcase
+            8'b0111xxxx,                    // Jccc
+            8'b111000xx,                    // LOOPNZ, JCXZ
             8'b11101011: begin              // JMP b8
 
                 fn <= START;
@@ -674,21 +681,6 @@ else if (ce) begin
                 3: begin ip <= ea;     cs <= {in, op1[7:0]}; fn <= START; end
 
             endcase
-            8'b111000xx: begin              // LOOP[NZ|Z], JCXZ
-
-                fn <= START;
-
-                // JCXZ
-                if (opcode[1:0] == 2'b11)
-                    ip <= ip + 1 + (cx == 0 ? signex : 0);
-                // LOOP, LOOPNZ, LOOPZ
-                // Если бит 1 равен 1, то ZF=bit[0] не имеет значения
-                else if (cx && (opcode[1] || flags[ZF] == opcode[0]))
-                    ip <= ip + 1 + signex;
-                else
-                    ip <= ip + 1;
-
-            end
             8'b11101000: case (s2)          // CALL b16
 
                 0: begin s2 <= 1; ea <= in; ip <= ip + 1; end
