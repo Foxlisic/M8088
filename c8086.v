@@ -211,12 +211,7 @@ else if (ce) begin
 
                 end
                 // PUSH r
-                8'b01010xxx: begin
-
-                    fn  <= PUSH;
-                    wb  <= rin;
-
-                end
+                8'b01010xxx: begin fn <= PUSH; wb <= rin; end
                 // POP r,s,etc.
                 8'b01011xxx, // POP r
                 8'b000xx111, // POP s
@@ -231,57 +226,36 @@ else if (ce) begin
                 8'b00011110: begin fn <= PUSH; wb <= ds; end
                 // PUSHF
                 8'b10011100: begin fn <= PUSH; wb <= flags; end
-                // Установка и снятие флагов CLx/STx, CMC
-                8'b1111100x: begin fn <= START; flags[CF]   <= in[0]; end
-                8'b1111101x: begin fn <= START; flags[IF]   <= in[0]; end
-                8'b1111110x: begin fn <= START; flags[DF]   <= in[0]; end
-                8'b11110101: begin fn <= START; flags[CF]   <= ~flags[CF]; end
+                // CLx/STx, CMC
+                8'b1111100x: begin fn <= START; flags[CF] <= in[0]; end
+                8'b1111101x: begin fn <= START; flags[IF] <= in[0]; end
+                8'b1111110x: begin fn <= START; flags[DF] <= in[0]; end
+                8'b11110101: begin fn <= START; flags[CF] <= ~flags[CF]; end
                 // SAHF, LAHF
-                8'b10011110: begin fn <= START; flags       <= ax[15:8]; end
-                8'b10011111: begin fn <= START; ax[15:8]    <= flags[7:0] | 2; end
-                // SALC, HALT
-                8'b11010110: begin fn <= START; ax[ 7:0]    <= {8{flags[CF]}}; end
-                8'b11110100: begin fn <= START; ip          <= ip; end
+                8'b10011110: begin fn <= START; flags     <= ax[15:8]; end
+                8'b10011111: begin fn <= START; ax[15:8]  <= flags[7:0] | 2; end
+                // SALC
+                8'b11010110: begin fn <= START; ax[ 7:0]  <= {8{flags[CF]}}; end
+                // HALT
+                8'b11110100: begin fn <= START; ip <= ip; end
                 // Grp#1 ALU; XCHG rm, r
                 8'b100000xx,
-                8'b1000011x: begin
-
-                    fn  <= MODRM;
-                    dir <= 0;
-
-                end
+                8'b1000011x: begin fn <= MODRM; dir <= 0; end
                 // TEST rm | TEST a,i
-                8'b1000010x: begin
-
-                    fn  <= MODRM;
-                    alu <= ALU_AND;
-
-                end
-                // CBW
-                8'b10011000: begin
-
-                    fn          <= START;
-                    size        <= 0;
-                    ax[15:8]    <= {8{ax[7]}};
-
-                end
-                // CWD
-                8'b10011001: begin
-
-                    fn  <= START;
-                    dx  <= {16{ax[15]}};
-
-                end
+                8'b1000010x: begin fn <= MODRM; alu <= ALU_AND; end
+                // CBW, CWD
+                8'b10011000: begin fn <= START; ax[15:8] <= {8{ax[7]}}; end
+                8'b10011001: begin fn <= START; dx       <= {16{ax[15]}}; end
                 // MOV s,rm
                 8'b10001110: begin fn <= MODRM; size <= 1; end
                 // XLATB
                 8'b11010111: begin fn <= INSTR; ea <= bx + ax[7:0]; cp <= 1; end
                 // LES|LDS r,m
                 8'b1100010x: begin fn <= MODRM; size <= 1; dir <= 1; end
-                // INT 1,3,4
-                8'b11001100: begin fn <= INTR; intr <= 3; end
-                8'b11001110: begin fn <= flags[OF] ? INTR : START; intr <= 4; end
-                8'b11110001: begin fn <= INTR; intr <= 1; end
+                // INT 1,3; INTO
+                8'b11110001: begin intr <= 1; fn <= INTR; end
+                8'b11001100: begin intr <= 3; fn <= INTR; end
+                8'b11001110: begin intr <= 4; fn <= flags[OF] ? INTR : START; end
                 // Grp#4|5; Сдвиги
                 8'b1111x11x,
                 8'b1100000x,
@@ -299,9 +273,9 @@ else if (ce) begin
                 8'b111000xx: begin
 
                     // Если бит 1 равен 1, то ZF=bit[0] не имеет значения
-                    if ((cx == 1) && (in[1] || flags[ZF] == in[0]))
-                         begin fn <= START; ip <= ip + 2; end
-                    else begin fn <= INSTR; end
+                    if ((cx != 1) && (in[1] || flags[ZF] == in[0]))
+                         begin fn <= INSTR; end
+                    else begin fn <= START; ip <= ip + 2; end
 
                     cx <= cx - 1;
 
@@ -441,8 +415,8 @@ else if (ce) begin
 
             8'b00xxx0xx: begin              // <alu> rm
 
-                wb <= alu_r;
-                flags   <= alu_f;
+                wb    <= alu_r;
+                flags <= alu_f;
 
                 fn <= (alu != ALU_CMP) ? WBACK : START;
 
@@ -643,7 +617,7 @@ else if (ce) begin
             8'b10011101: begin              // POPF
 
                 fn      <= START;
-                flags   <= {wb[11:2], 1'b1, wb[0]};
+                flags   <= wb | 2;
 
             end
             8'b1010100x: case (s2)          // TEST a,i
@@ -695,17 +669,8 @@ else if (ce) begin
             end
             8'b11000010: case (s2)          // RET i16
 
-                // Младший байт
                 0: begin s2 <= 1; ea <= in; ip <= ip + 1; end
-
-                // Старший байт
-                1: begin
-
-                    fn <= START;
-                    ip <= wb;
-                    sp <= sp + {in, ea[7:0]};
-
-                 end
+                1: begin fn <= START; ip <= wb; sp <= sp + {in, ea[7:0]}; end
 
             endcase
             8'b11001011: case (s2)          // RETF
