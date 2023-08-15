@@ -102,7 +102,7 @@ if (reset_n == 1'b0) begin
     ip      <= 16'hFFF0;
     iack    <= 1'b0;
     //             ODIT SZ A  P C
-    flags   <= 12'b0000_0000_0010;
+    flags   <= 12'b1000_0000_0010;
 
 end
 else if (ce) begin
@@ -187,7 +187,7 @@ else if (ce) begin
                 8'b00xxx0xx: begin fn <= MODRM; end
                 8'b00xxx10x: begin fn <= INSTR; end
                 // MOV rm, i | LEA r, m
-                8'b1100011x: begin fn <= INSTR; cpen <= 0; end
+                8'b1100011x,
                 8'b10001101: begin fn <= MODRM; cpen <= 0; end
                 // INC | DEC r
                 8'b0100xxxx: begin
@@ -490,24 +490,13 @@ else if (ce) begin
                 // 8 bit
                 0: begin
 
-                    s2  <= 1;
-                    wb  <= in;
-                    dir <= 0;
-                    ip  <= ip + 1;
-
+                    s2  <= 1; wb <= in; dir <= 0; ip  <= ip + 1;
                     if (size == 0) begin fn <= WBACK; cp <= 1; end
 
                 end
 
                 // 16 bit
-                1: begin
-
-                    fn          <= WBACK;
-                    cp          <= 1;
-                    ip          <= ip + 1;
-                    wb[15:8]    <= in;
-
-                end
+                1: begin fn <= WBACK; cp <= 1; ip <= ip + 1; wb[15:8] <= in; end
 
             endcase
             8'b10001101: begin              // LEA r16, m
@@ -673,41 +662,17 @@ else if (ce) begin
                 1: begin fn <= START; ip <= wb; sp <= sp + {in, ea[7:0]}; end
 
             endcase
-            8'b11001011: case (s2)          // RETF
+            8'b1100101x: case (s2)          // RETF; RETF i16
 
-                0: begin s2 <= 1; op1 <= wb; fn <= POP; end
-                1: begin s2 <= 2; cs  <= wb; ip <= op1; fn <= START; end
-
-            endcase
-            8'b11001010: case (s2)          // RETF i16
-
-                // Младший байт
-                0: begin
-
-                    s2  <= 1;
-                    fn  <= POP;
-                    op1 <= wb;
-                    op2 <= in;
-                    ip  <= ip + 1;
-
-                end
-
-                // Старший байт
-                1: begin
-
-                    fn <= START;
-                    cs <= wb;
-                    ip <= op1;
-                    sp <= sp + {in, op2[7:0]};
-
-                end
+                0: begin fn <= POP;   s2 <= 1;  op1 <= wb;  op2 <= in; ip <= ip + 1; end
+                1: begin fn <= START; cs <= wb; ip  <= op1; if (!opcode[0]) sp <= sp + {in, op2[7:0]}; end
 
             endcase
             8'b11001111: case (s2)          // IRET
 
                 0: begin s2 <= 1; fn <= POP; ip <= wb; end
                 1: begin s2 <= 2; fn <= POP; cs <= wb; end
-                2: begin fn <= START; flags <= {wb[11:2], 1'b1, wb[0]}; end
+                2: begin fn <= START; flags <= wb[11:0] | 2; end
 
             endcase
             8'b10001100: begin              // MOV rm,s
@@ -1102,17 +1067,17 @@ else if (ce) begin
 
         endcase
 
-        // Прерывание intr
+        // Прерывание intr; считается за выполнение инструкции
         // -------------------------------------------------------------
-        INTR: case (s1)
+        INTR: case (s2)
 
-            0: begin s1 <= 1; fn <= PUSH; wb <= flags; fnext <= INTR; end
-            1: begin s1 <= 2; fn <= PUSH; wb <= cs; end
-            2: begin s1 <= 3; fn <= PUSH; wb <= ip; end
-            3: begin s1 <= 4; ea <= {intr, 2'b00}; segment <= 0; cp <= 1; end
-            4: begin s1 <= 5; ea <= ea + 1; ip[ 7:0] <= in; end
-            5: begin s1 <= 6; ea <= ea + 1; ip[15:8] <= in; end
-            6: begin s1 <= 7; ea <= ea + 1; cs[ 7:0] <= in; end
+            0: begin s2 <= 1; fn <= PUSH; wb <= flags; fnext <= INTR; end
+            1: begin s2 <= 2; fn <= PUSH; wb <= cs; end
+            2: begin s2 <= 3; fn <= PUSH; wb <= ip; end
+            3: begin s2 <= 4; ea <= {intr, 2'b00}; segment <= 0; cp <= 1; end
+            4: begin s2 <= 5; ea <= ea + 1; ip[ 7:0] <= in; end
+            5: begin s2 <= 6; ea <= ea + 1; ip[15:8] <= in; end
+            6: begin s2 <= 7; ea <= ea + 1; cs[ 7:0] <= in; end
             7: begin cp <= 0; ea <= ea + 1; cs[15:8] <= in; fn <= START; end
 
         endcase

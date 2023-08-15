@@ -1,20 +1,20 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sun Aug 13 07:04:43 2023
+[*] Tue Aug 15 05:16:37 2023
 [*]
 [dumpfile] "e:\dev\m8086\tb.vcd"
-[dumpfile_mtime] "Sun Aug 13 07:04:01 2023"
-[dumpfile_size] 62179
+[dumpfile_mtime] "Tue Aug 15 05:15:55 2023"
+[dumpfile_size] 89198
 [savefile] "e:\dev\m8086\tb.gtkw"
-[timestart] 678
-[size] 1280 612
+[timestart] 189
+[size] 1280 666
 [pos] -1 -1
-*-7.000000 900 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-7.000000 347 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [sst_width] 264
 [signals_width] 197
 [sst_expanded] 1
-[sst_vpaned_height] 142
+[sst_vpaned_height] 159
 @28
 tb.clock_hi
 tb.clock_25
@@ -34,7 +34,7 @@ tb.CPU.opcode[7:0]
 (7)tb.CPU.opcode[7:0]
 @1401200
 -group_end
-@800200
+@c00201
 -MEMORY
 @22
 tb.address[19:0]
@@ -42,16 +42,13 @@ tb.in[7:0]
 tb.out[7:0]
 @28
 tb.we
-@1000200
+@1401201
 -MEMORY
 @c00200
--CONTROL
-@28
-tb.CPU.cp
+-PTR
 @22
-tb.CPU.fn[3:0]
-tb.CPU.s1[3:0]
-tb.CPU.s2[3:0]
+tb.CPU.segment[15:0]
+tb.CPU.ea[15:0]
 @c00022
 tb.CPU.ip[15:0]
 @28
@@ -73,6 +70,20 @@ tb.CPU.ip[15:0]
 (15)tb.CPU.ip[15:0]
 @1401200
 -group_end
+@28
+tb.CPU.over
+tb.CPU.cpen
+@1401200
+-PTR
+@c00200
+-CONTROL
+@28
+tb.CPU.cp
+@22
+tb.CPU.fn[3:0]
+tb.CPU.s1[3:0]
+tb.CPU.s2[3:0]
+@1401200
 -CONTROL
 @c00200
 -REG
@@ -96,17 +107,10 @@ tb.CPU.di[15:0]
 @1401200
 -REG
 @c00200
--PTR
-@22
-tb.CPU.ea[15:0]
-tb.CPU.segment[15:0]
-@28
-tb.CPU.over
-@1401200
--PTR
-@c00201
 -ALU
 @28
+tb.CPU.alu[2:0]
+tb.CPU.dir
 tb.CPU.size
 @c00022
 tb.CPU.flags[11:0]
@@ -126,6 +130,7 @@ tb.CPU.flags[11:0]
 @1401200
 -group_end
 @22
+tb.CPU.alu_r[16:0]
 tb.CPU.op1[15:0]
 tb.CPU.op2[15:0]
 tb.CPU.wb[15:0]
@@ -142,7 +147,6 @@ tb.CPU.modrm[7:0]
 (7)tb.CPU.modrm[7:0]
 @1401200
 -group_end
-@1401201
 -ALU
 @c00200
 -SEG
