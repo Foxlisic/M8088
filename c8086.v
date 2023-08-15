@@ -102,7 +102,7 @@ if (reset_n == 1'b0) begin
     ip      <= 16'hFFF0;
     iack    <= 1'b0;
     //             ODIT SZ A  P C
-    flags   <= 12'b1000_0000_0010;
+    flags   <= 12'b0010_0000_0010;
 
 end
 else if (ce) begin
@@ -760,11 +760,15 @@ else if (ce) begin
             8'b110100xx: case (s2)          // Grp#2 Сдвиги
 
                 // Выбор второго операнда
-                0: begin s2 <= 1;
+                // Если тут был указатель на памятьЮ, то сбросить его
+                0: if (cp) cp <= 0; else
+                begin
 
+                    s2  <= 1;
                     alu <= modrm[5:3];
 
-                    if (opcode[4]) op2 <= (opcode[1] ? cx[3:0] : 1);
+                    if (opcode[4])
+                         begin op2 <= (opcode[1] ? cx[3:0] : 1); end
                     else begin op2 <= in[3:0]; ip <= ip + 1; end
 
                 end
@@ -772,14 +776,10 @@ else if (ce) begin
                 // Процедура сдвига на 0..15 шагов
                 1: begin
 
-                    if (op2) begin
-
-                        op1   <= rot_r;
-                        flags <= rot_f;
-
-                    end
+                    // Вычисление
+                    if (op2) begin op1 <= rot_r; flags <= rot_f; end
                     // Запись результата
-                    else begin wb <= op1; fn <= WBACK; end
+                    else begin wb <= op1; cp <= 1; fn <= WBACK; end
 
                     op2 <= op2 - 1;
 
@@ -789,11 +789,12 @@ else if (ce) begin
             8'b1110x10x: case (s2)          // IN a,p
 
                 // Чтение номера порта
-                0: begin s2 <= 1;
+                0: begin
 
-                    port_address <= opcode[3] ? dx : in;
-                    if (opcode[3] == 0) ip <= ip + 1;
+                    s2   <= 1;
                     cpen <= 0;
+                    port_address <= opcode[3] ? dx : in;
+                    if (!opcode[3]) ip <= ip + 1;
 
                 end
 
@@ -807,32 +808,36 @@ else if (ce) begin
                     if (size) begin s2 <= 1; cpen <= 1; end
                     else fn <= START;
 
-                    size <= 0;
                     if (cpen)
                          ax[15:8] <= port_in;
                     else ax[ 7:0] <= port_in;
+
+                    port_address <= port_address + 1;
+                    size <= 0;
 
                 end
 
             endcase
             8'b1110x11x: case (s2)          // OUT p,a
 
-                0: begin s2 <= 1;
+                0: begin
+
+                    s2 <= 1;
 
                     port_address <= opcode[3] ? dx : in;
-                    if (opcode[3] == 0) ip <= ip + 1;
+                    port_out     <= ax[7:0];
+                    port_write   <= 1;
 
-                    port_out    <= ax[7:0];
-                    port_write  <= 1;
-
-                    if (size == 0) fn <= START;
+                    if (!opcode[3]) ip <= ip + 1;
+                    if (!size) fn <= START;
 
                 end
                 1: begin
 
-                    port_out    <= ax[15:8];
-                    port_write  <= 1;
-                    fn <= START;
+                    port_address <= port_address + 1;
+                    port_out     <= ax[15:8];
+                    port_write   <= 1;
+                    fn           <= START;
 
                 end
 
@@ -1078,7 +1083,7 @@ else if (ce) begin
             4: begin s2 <= 5; ea <= ea + 1; ip[ 7:0] <= in; end
             5: begin s2 <= 6; ea <= ea + 1; ip[15:8] <= in; end
             6: begin s2 <= 7; ea <= ea + 1; cs[ 7:0] <= in; end
-            7: begin cp <= 0; ea <= ea + 1; cs[15:8] <= in; fn <= START; end
+            7: begin cp <= 0; ea <= ea + 1; cs[15:8] <= in; fn <= START; flags[IF] <= 1'b0; end
 
         endcase
 
