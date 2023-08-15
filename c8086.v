@@ -1003,16 +1003,17 @@ else if (ce) begin
             endcase
             8'b1010011x: case (s2)          // CMPSx
 
-                0: begin s2 <= 1; cp <= 1; ea <= si; alu <= ALU_SUB; end
-                1: begin s2 <= size ? 2 : 3; op1 <= in; ea <= ea + 1; end
-                2: begin s2 <= 3; op1[15:8] <= in; end
-                3: begin s2 <= 4; segment <= es; ea <= di; end
-                4: begin s2 <= size ? 5 : 6; op2 <= in; ea <= ea + 1; end
-                5: begin s2 <= 6; op2[15:8] <= in; end
+                0: begin s2 <= 1;            cp        <= 1;  ea <= si; alu <= ALU_SUB; end
+                1: begin s2 <= size ? 2 : 3; op1       <= in; ea <= ea + 1; end
+                2: begin s2 <= 3;            op1[15:8] <= in; end
+                3: begin s2 <= 4;            segment   <= es; ea <= di; end
+                4: begin s2 <= size ? 5 : 6; op2       <= in; ea <= ea + 1; end
+                5: begin s2 <= 6;            op2[15:8] <= in; end
 
                 // Инкремент или декремент SI
-                6: begin s2 <= 7;
+                6: begin
 
+                    s2      <= 7;
                     flags   <= alu_f;
                     cp      <= 0;
                     si      <= flags[DF] ? si - (opcode[0] + 1) : si + (opcode[0] + 1);
@@ -1036,8 +1037,9 @@ else if (ce) begin
             endcase
             8'b1010111x: case (s2)          // SCASx
 
-                0: begin s2 <= 1;
+                0: begin
 
+                    s2      <= 1;
                     cp      <= 1;
                     alu     <= ALU_SUB;
                     op1     <= ax;
@@ -1045,24 +1047,15 @@ else if (ce) begin
                     segment <= es;
 
                 end
-                1: begin s2 <= size ? 2 : 3; op2 <= in; ea <= ea + 1; end
-                2: begin s2 <= 3; op2[15:8] <= in; end
-
-                // Инкремент или декремент SI
-                3: begin
-
-                    s2      <= 4;
-                    flags   <= alu_f;
-                    cp      <= 0;
-                    si      <= flags[DF] ? si - (opcode[0] + 1) : si + (opcode[0] + 1);
-                    size    <= 1;
-
-                end
+                1: begin s2 <= size ? 2 : 3; op2       <= in; ea <= ea + 1; end
+                2: begin s2 <= 3;            op2[15:8] <= in; end
 
                 // Инкремент или декремент DI
-                4: begin
+                3: begin
 
-                    rep_ft  <= 1;                       // Проверять на REPNZ или REPZ
+                    flags   <= alu_f;
+                    cp      <= 0;
+                    rep_ft  <= 1; // Проверять на REPNZ или REPZ
                     di      <= flags[DF] ? di - (opcode[0] + 1) : di + (opcode[0] + 1);
                     fn      <= rep[1] ? REPF : START;   // Использование REP:
 
