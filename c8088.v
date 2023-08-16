@@ -2,29 +2,33 @@
  * Небольшой процессор с ограниченным набором инструкции
  */
 
-module c8086
+/* verilator lint_off WIDTH */
+/* verilator lint_off CASEX */
+/* verilator lint_off CASEOVERLAP */
+/* verilator lint_off CASEINCOMPLETE */
+
+module c8088
 (
     // Основной контур для процессора
-    input               clock,              // 25 mhz
+    input               clock,
     input               ce,
     input               reset_n,
     output       [19:0] address,
-    input        [ 7:0] in,                 // in = ram[address]
+    input        [ 7:0] in,             // in = ram[address]
     output  reg  [ 7:0] out,
     output  reg         we,
-    output              m0,                 // M0-считывание инструкции
+    output              m0,             // M0-считывание инструкции
 
     // Порты ввода-вывода
-    output  reg  [15:0] port_address,
-    output  reg         port_write,
-    output  reg         port_read,
-    input        [ 7:0] port_in,
-    output  reg  [ 7:0] port_out,
-    input               port_ready,
+    output  reg  [15:0] port_a,
+    output  reg         port_w,
+    output  reg         port_r,
+    input        [ 7:0] port_i,
+    output  reg  [ 7:0] port_o,
 
     // PIC: Программируемый контроллер прерываний
-    input               irq_signal,         // Счетчик IRQ (0 или 1)
-    input        [ 7:0] irq                 // Номер IRQ (0..255)
+    input               irq,            // Срабатывает на posedge
+    input        [ 7:0] irq_in          // Номер IRQ (0..255)
 );
 
 // Выбор текущего адреса, segment_id[2] = 1 означает прерывание
@@ -107,8 +111,8 @@ if (reset_n == 1'b0) begin
 end
 else if (ce) begin
 
-    port_read  <= 0; // Строб чтения из порта
-    port_write <= 0; // Строб записи в порт
+    port_r <= 0; // Строб чтения из порта
+    port_w <= 0; // Строб записи в порт
 
     case (fn)
 
@@ -133,11 +137,11 @@ else if (ce) begin
             ip_start    <= ip;          // Для REP:
 
             // IRQ прерывание вызывается, если счетчик изменился (iack != irq_signal) и IF=1
-            if ((iack ^ irq_signal) && flags[IF]) begin
+            if ((iack ^ irq) && flags[IF]) begin
 
-                fn    <= INTR;
-                intr  <= irq;
-                iack  <= irq_signal;
+                fn    <= irq ? INTR : LOAD;
+                intr  <= irq_in;
+                iack  <= irq;
 
             end
             // TF=1 (Trace Flag включен) и IF=1
@@ -791,15 +795,15 @@ else if (ce) begin
                 // Чтение номера порта
                 0: begin
 
-                    s2   <= 1;
-                    cpen <= 0;
-                    port_address <= opcode[3] ? dx : in;
+                    s2     <= 1;
+                    cpen   <= 0;
+                    port_a <= opcode[3] ? dx : in;
                     if (!opcode[3]) ip <= ip + 1;
 
                 end
 
                 // Чтение, ожидание результата 1 такт
-                1: begin s2 <= 2; port_read <= 1; end
+                1: begin s2 <= 2; port_r <= 1; end
                 2: begin s2 <= 3; end
 
                 // Запись ответа в AL|AH
@@ -809,11 +813,11 @@ else if (ce) begin
                     else fn <= START;
 
                     if (cpen)
-                         ax[15:8] <= port_in;
-                    else ax[ 7:0] <= port_in;
+                         ax[15:8] <= port_i;
+                    else ax[ 7:0] <= port_i;
 
-                    port_address <= port_address + 1;
-                    size <= 0;
+                    port_a <= port_a + 1;
+                    size   <= 0;
 
                 end
 
@@ -824,9 +828,9 @@ else if (ce) begin
 
                     s2 <= 1;
 
-                    port_address <= opcode[3] ? dx : in;
-                    port_out     <= ax[7:0];
-                    port_write   <= 1;
+                    port_a  <= opcode[3] ? dx : in;
+                    port_o  <= ax[7:0];
+                    port_w  <= 1;
 
                     if (!opcode[3]) ip <= ip + 1;
                     if (!size) fn <= START;
@@ -834,10 +838,10 @@ else if (ce) begin
                 end
                 1: begin
 
-                    port_address <= port_address + 1;
-                    port_out     <= ax[15:8];
-                    port_write   <= 1;
-                    fn           <= START;
+                    port_a  <= port_a + 1;
+                    port_o  <= ax[15:8];
+                    port_w  <= 1;
+                    fn      <= START;
 
                 end
 

@@ -37,7 +37,7 @@ always @(posedge clock_hi) begin in <= memory[address]; if (we) memory[address] 
 // Описание подключения CPU
 // =============================================================================
 
-c8086 CPU
+c8088 CPU
 (
     .clock      (clock_25),
     .ce         (1'b1),
