@@ -6,6 +6,7 @@
 int main(int argc, char** argv) {
 
     Verilated::commandArgs(argc, argv);
+
     TB* tb = new TB(argc, argv);
     while (tb->main()) tb->frame();
     return tb->destroy();

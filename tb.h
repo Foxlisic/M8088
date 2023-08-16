@@ -31,7 +31,8 @@ public:
         x   = 0; y   = 0;
         _hs = 1; _vs = 1;
 
-        memory  = (uint8_t*) malloc(64*1024);
+        // 1MB alloc
+        memory  = (uint8_t*) malloc(1024*1024 + 65536);
 
         pticks      = 0;
         mod_c8088  = new Vc8088();
@@ -67,6 +68,13 @@ public:
         mod_c8088->clock = 1; mod_c8088->eval();
         mod_c8088->reset_n = 1;
         mod_c8088->ce = 1;
+
+        // Загрузка BIOS
+        if (argc > 1) {
+
+            FILE* fp = fopen(argv[1], "rb");
+            if (fp) { fread(memory + 0xF0000, 1, 65536, fp); fclose(fp); }
+        }
     }
 
     int main() {
@@ -98,11 +106,8 @@ public:
     void frame() {
 
         // 100k x 20 = 2M in SEC
-        int tps = 100000; // 100000
+        int tps = 50000; // 100000
         for (int i = 0; i < tps; i++) {
-
-            mod_vga->data = memory[0xB8000 + mod_vga->address];
-
 
             // ----------------------
             if (mod_c8088->we)
@@ -111,9 +116,12 @@ public:
             mod_c8088->in = memory[ mod_c8088->address ];
             // ----------------------
 
+            // printf("%x\n", mod_c8088->address);
+
             mod_c8088->clock = 0; mod_c8088->eval();
             mod_c8088->clock = 1; mod_c8088->eval();
 
+            mod_vga->data  = memory[0xB8000 + mod_vga->address];
             mod_vga->clock = 0; mod_vga->eval();
             mod_vga->clock = 1; mod_vga->eval();
 

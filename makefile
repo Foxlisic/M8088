@@ -1,9 +1,9 @@
 VINC=/usr/share/verilator/include
 
 all: ica tbc
-	./tb
+	./tb tb.bin
 ica:
-	fasm tb.asm tb.bin && php tb.php && rm tb.bin
+	fasm tb.asm tb.bin && php tb.php
 	iverilog -g2005-sv -o tb.qqq tb.v c8088.v
 	vvp tb.qqq -o tb.vcd > vvp.log
 	rm tb.qqq
