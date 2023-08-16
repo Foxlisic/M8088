@@ -1,3 +1,5 @@
 tb.hex
 tb.vcd
 vvp.log
+/tb
+/obj_dir
