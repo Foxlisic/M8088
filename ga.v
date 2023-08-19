@@ -6,11 +6,11 @@ module ga
     output  reg [3:0]   r,
     output  reg [3:0]   g,
     output  reg [3:0]   b,
-    output  reg         hs,
-    output  reg         vs,
+    output  wire        hs,
+    output  wire        vs,
 
     // Доступ к памяти
-    output  reg  [12:0] address, // 4k Шрифты 8x16 [0000-0FFF] | 4k Видеоданные [1000..1FFF]
+    output  reg  [12:0] address, // 4k Видеоданные [0000..0FFF] | 4k Шрифты 8x16 [1000-1FFF]
     input   wire [ 7:0] data,    // data = videoram[ address ]
 
     // Внешний интерфейс
