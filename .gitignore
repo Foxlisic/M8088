@@ -2,5 +2,6 @@ tb.hex
 tb.vcd
 tb.bin
 vvp.log
-/tb
-/obj_dir
+/av/tb
+/av/obj_dir
+/av/*.gtkw
