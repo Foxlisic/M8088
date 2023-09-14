@@ -18,6 +18,13 @@ initial begin
     clock_25 = 0;
     reset_n  = 0;
 
+    // JMP FAR 0000:0000
+    memory[20'hFFFF0] = 8'hEA;
+    memory[20'hFFFF1] = 8'h00;
+    memory[20'hFFFF2] = 8'h00;
+    memory[20'hFFFF3] = 8'h00;
+    memory[20'hFFFF4] = 8'h00;
+
     #3.0  reset_n = 1;
     #2000 $finish;
 

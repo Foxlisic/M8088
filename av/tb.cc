@@ -1,5 +1,6 @@
 #include "obj_dir/Vc8088.h"
 #include "obj_dir/Vga.h"
+#include "obj_dir/Vps2.h"
 #include "font.h"
 #include "tb.h"
 

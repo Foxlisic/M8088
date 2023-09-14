@@ -41,6 +41,7 @@ protected:
     // Модули
     Vc8088* mod_c8088;
     Vga*    mod_vga;
+    Vps2*   mod_ps2;
 
 public:
 
@@ -55,6 +56,7 @@ public:
         pticks      = 0;
         mod_c8088  = new Vc8088();
         mod_vga    = new Vga();
+        mod_ps2    = new Vps2();
 
         // Удвоение пикселей
         scale        = 2;
@@ -143,9 +145,7 @@ public:
             kbd_pop(ps_clock, ps_data);
 
             // ----------------------
-            if (mod_c8088->we)
-                memory[ mod_c8088->address ] = mod_c8088->out;
-
+            if (mod_c8088->we) memory[ mod_c8088->address ] = mod_c8088->out;
             mod_c8088->in = memory[ mod_c8088->address ];
             // ----------------------
 
@@ -154,6 +154,13 @@ public:
             mod_c8088->clock = 0; mod_c8088->eval();
             mod_c8088->clock = 1; mod_c8088->eval();
 
+            // PS/2 клавиатура
+            mod_ps2->ps_clock = ps_clock;
+            mod_ps2->ps_data  = ps_data;
+            mod_ps2->clock = 0; mod_ps2->eval();
+            mod_ps2->clock = 1; mod_ps2->eval();
+
+            // Видеопамять
             mod_vga->data  = memory[0xB8000 + mod_vga->address];
             mod_vga->clock = 0; mod_vga->eval();
             mod_vga->clock = 1; mod_vga->eval();
