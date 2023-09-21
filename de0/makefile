@@ -1,7 +1,7 @@
 all: cdb pgm
 pgm:
 	quartus_pgm -m jtag -o "p;output_files/de0.sof"
-build:
+syn:
 	quartus_map --read_settings_files=on  --write_settings_files=off de0 -c de0
 	quartus_fit --read_settings_files=off --write_settings_files=off de0 -c de0
 	quartus_asm --read_settings_files=on  --write_settings_files=off de0 -c de0

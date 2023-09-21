@@ -7,7 +7,7 @@
 /* verilator lint_off CASEOVERLAP */
 /* verilator lint_off CASEINCOMPLETE */
 
-module c8088
+module core
 (
     // Основной контур для процессора
     input               clock,

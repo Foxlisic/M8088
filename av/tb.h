@@ -39,7 +39,7 @@ protected:
     uint8_t* memory;
 
     // Модули
-    Vc8088* mod_c8088;
+    Vcore*  mod_core;
     Vga*    mod_vga;
     Vps2*   mod_ps2;
 
@@ -54,7 +54,7 @@ public:
         memory  = (uint8_t*) malloc(1024*1024 + 65536);
 
         pticks      = 0;
-        mod_c8088  = new Vc8088();
+        mod_core   = new Vcore();
         mod_vga    = new Vga();
         mod_ps2    = new Vps2();
 
@@ -83,11 +83,11 @@ public:
         }
 
         // Сброс процессора
-        mod_c8088->reset_n = 0;
-        mod_c8088->clock = 0; mod_c8088->eval();
-        mod_c8088->clock = 1; mod_c8088->eval();
-        mod_c8088->reset_n = 1;
-        mod_c8088->ce = 1;
+        mod_core->reset_n = 0;
+        mod_core->clock = 0; mod_core->eval();
+        mod_core->clock = 1; mod_core->eval();
+        mod_core->reset_n = 1;
+        mod_core->ce = 1;
 
         // Загрузка BIOS
         if (argc > 1) {
@@ -145,14 +145,14 @@ public:
             kbd_pop(ps_clock, ps_data);
 
             // ----------------------
-            if (mod_c8088->we) memory[ mod_c8088->address ] = mod_c8088->out;
-            mod_c8088->in = memory[ mod_c8088->address ];
+            if (mod_core->we) memory[ mod_core->address ] = mod_core->out;
+            mod_core->in = memory[ mod_core->address ];
             // ----------------------
 
             // printf("%x\n", mod_c8088->address);
 
-            mod_c8088->clock = 0; mod_c8088->eval();
-            mod_c8088->clock = 1; mod_c8088->eval();
+            mod_core->clock = 0; mod_core->eval();
+            mod_core->clock = 1; mod_core->eval();
 
             // PS/2 клавиатура
             mod_ps2->ps_clock = ps_clock;

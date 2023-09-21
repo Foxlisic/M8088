@@ -90,6 +90,37 @@ pll PLL0
     .locked    (locked)
 );
 
+// Интерфейс процессора
+// -----------------------------------------------------------------------------
+
+wire [19:0] address;
+wire [ 7:0] out, port_i, port_o, irq_in;
+wire        we, port_w, port_r, irq;
+wire [15:0] port_a;
+
+core C86
+(
+    // Основной контур для процессора
+    .clock          (clock_25),
+    .ce             (1'b1),
+    .reset_n        (locked),
+    .address        (address),
+    .in             (in),
+    .out            (out),
+    .we             (we),
+
+    // Порты ввода-вывода
+    .port_a         (port_a),
+    .port_w         (port_w),
+    .port_r         (port_r),
+    .port_i         (port_i),
+    .port_o         (port_o),
+
+    // PIC: Программируемый контроллер прерываний
+    .irq            (irq),
+    .irq_in         (irq_in)
+);
+
 // Внутрисхемная память
 // -----------------------------------------------------------------------------
 
@@ -123,11 +154,11 @@ mcom M2_COMM
     .q0     (m2_i)
 );
 
-// БИОС 64К :: Пока что так
+// БИОС 16К :: Пока что так
 mbios M2_BIOS
 (
     .clock  (clock_100),
-    .a0     (address[15:0]),
+    .a0     (address[11:0]),
     .q0     (m3_i)
 );
 
@@ -157,38 +188,11 @@ ga VIDEO
     .cursor     (cursor)
 );
 
-// Интерфейс процессора
+// Клавиатура
 // -----------------------------------------------------------------------------
-
-wire [19:0] address;
-wire [ 7:0] out, port_i, port_o, irq_in;
-wire        we, port_w, port_r, irq;
-wire [15:0] port_a;
-
-c8088 CPU86
-(
-    // Основной контур для процессора
-    .clock          (clock_25),
-    .ce             (1'b1),
-    .reset_n        (locked),
-    .address        (address),
-    .in             (in),
-    .out            (out),
-    .we             (we),
-
-    // Порты ввода-вывода
-    .port_a         (port_a),
-    .port_w         (port_w),
-    .port_r         (port_r),
-    .port_i         (port_i),
-    .port_o         (port_o),
-
-    // PIC: Программируемый контроллер прерываний
-    .irq            (irq),
-    .irq_in         (irq_in)
-);
 
 endmodule
 
-`include "../c8088.v"
+`include "../core.v"
 `include "../ga.v"
+`include "../ps2.v"
