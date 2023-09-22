@@ -27,7 +27,7 @@ module core
     output  reg  [ 7:0] port_o,
 
     // PIC: Программируемый контроллер прерываний
-    input               irq,            // Срабатывает на posedge
+    input               irq,            // Срабатывает на изменении
     input        [ 7:0] irq_in          // Номер IRQ (0..255)
 );
 
@@ -139,7 +139,7 @@ else if (ce) begin
             // IRQ прерывание вызывается, если счетчик изменился (iack != irq_signal) и IF=1
             if ((iack ^ irq) && flags[IF]) begin
 
-                fn    <= irq ? INTR : LOAD;
+                fn    <= INTR;
                 intr  <= irq_in;
                 iack  <= irq;
 

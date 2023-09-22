@@ -17,23 +17,19 @@ protected:
 
     int vga_hs = 1, vga_vs = 1, vga_x = 0, vga_y = 2;
     int tps = 50000;
+    int irq_mask = 0;
+    int irq_pend = 0;
 
     // PS2-KEYBOARD
     int     ps_clock = 0, ps_data = 0, kbd_phase = 0, kbd_ticker = 0;
     uint8_t kbd[256], kbd_top = 0, kb_hit_cnt = 0, kb_latch = 0, kb_data = 0;
 
-    // SDCARD
-    FILE* sdcard;
-
-    int tstate = 0;
-    int spi_sclk = 0,
-        spi_cnt = 0,
-        spi_indata,
-        spi_state,
-        spi_odata,
-        spi_command,
-        sd_index,
-        sd_cmd_arg;
+    // SDCARD: sd_status бит 7-timeout, 0-busy
+    uint8_t     spi_data, spi_st = 2, spi_status, spi_command, spi_crc, spi_resp, sd_status = 0x80;
+    uint32_t    spi_arg, spi_lba;
+    uint16_t    spi_phase;
+    uint8_t     spi_sector[512];
+    FILE*       spi_file;
 
     // Память
     uint8_t* memory;
@@ -147,7 +143,43 @@ public:
             // ----------------------
             if (mod_core->we) memory[ mod_core->address ] = mod_core->out;
             mod_core->in = memory[ mod_core->address ];
+
+            // Контроллер прерываний
             // ----------------------
+
+            // Есть прерывание от клавиатуры. Если размаскировано, то записать в порт
+            if (mod_ps2->done && (irq_mask & 2) && !irq_pend) {
+
+                kb_data = mod_ps2->data;
+
+                mod_core->irq = !mod_core->irq;
+                mod_core->irq_in = 2;
+
+                irq_pend = 1;
+            }
+
+            // Чтение из портов
+            if (mod_core->port_r) {
+
+                switch (mod_core->port_a) {
+
+                    case 0x60: mod_core->port_i = kb_data; break;
+                    case 0xFE: mod_core->port_i = sd_status; break;
+                    case 0xFF: mod_core->port_i = spi_data; break;
+                }
+            }
+
+            // Запись в порт
+            if (mod_core->port_w) {
+
+                switch (mod_core->port_a) {
+
+                    case 0x20: irq_pend = 0; break; // EOI
+                    case 0xA0: irq_mask = mod_core->port_o; break; // IOMASK
+                    case 0xFE: sd_status = 0; /* Управление SD */ break;
+                    case 0xFF: sdspi(mod_core->port_o); break; // Отослать данные к SD
+                }
+            }
 
             // printf("%x\n", mod_c8088->address);
 
@@ -451,112 +483,192 @@ public:
     }
 
     // Эмуляция протокола SDCard
-    void sdspi(int SPI_SCLK, int SPI_MOSI) {
+    void sdspi(int data) {
 
-        unsigned char bchar;
+        switch (spi_status) {
 
-        // Прием данных от SPI
-        if (spi_sclk == 0 && SPI_SCLK == 1) {
+            // IDLE
+            case 0:
 
-            // Прием данных от контроллера
-            spi_indata = ((spi_indata << 1) | SPI_MOSI) & 0xff;
+                // Чтение в 0-м дает последний ответ от команды
+                if (data == 0xFF) {
 
-            spi_cnt++;
-            if (spi_cnt == 8) {
+                    spi_data = spi_resp;
+                    spi_resp = 0xFF;
+                }
+                // Запуск приема команды
+                else if ((data & 0xC0) == 0x40) {
 
-                spi_cnt = 0;
-                switch (spi_state) {
+                    spi_status  = 1;
+                    spi_command = data & 0x3F;
+                    spi_arg     = 0;
+                    spi_phase   = 0;
+                }
 
-                    // IDLE
-                    case 0: {
+                break;
 
-                        spi_odata = 0xFF;
+            // COMMAND (прием)
+            case 1: {
 
-                        // Получена команда
-                        if (spi_indata >= 0x40 && spi_indata < 0x80) {
+                if (spi_phase < 4) {
 
-                            // printf("CMD ACCEPT\n");
-                            spi_command = spi_indata & 0x3F;
-                            spi_state = 1;
-                        }
+                    spi_arg = (spi_arg << 8) | data;
+                    spi_phase++;
 
-                        break;
+                } else {
+
+                    spi_phase = 0;
+                    spi_crc   = data;
+
+                    /* Ответ зависит от команды */
+                    switch (spi_command) {
+
+                        /* CMDxx */
+                        case 0:  spi_status = 0; spi_resp = 0x01; break;
+                        case 8:  spi_status = 2; spi_resp = 0x00; break;
+                        case 13: spi_status = 6; spi_resp = 0x00; break;    // STATUS
+                        case 17: spi_status = 4; spi_lba  = spi_arg; break; // BLOCK SEARCH READ
+                        case 24: spi_status = 5; spi_lba  = spi_arg; break; // BLOCK SEARCH WRITE
+                        case 41: spi_status = 0; spi_resp = 0x00; break;    // READY=0
+                        case 55: spi_status = 0; spi_resp = 0x01; break;    // ACMD=1
+                        case 58: spi_status = 3; spi_resp = 0x00; break;    // CHECK=0
+                        default: spi_status = 0; spi_resp = 0xFF; break;    // Unknown
+                    }
+                }
+
+                break;
+            }
+
+            // OCR Read (5 bytes)
+            case 2: {
+
+                if (data == 0xFF) {
+
+                    if (spi_phase == 4) {
+                        spi_data = 0xAA;
+                        spi_status = 0;
+                    } else {
+                        spi_data = 0x00;
                     }
 
-                    // COMMAND ARG4+CHKSUM
-                    case 1: spi_state = 2; sd_cmd_arg  =  spi_indata << 24;  break;
-                    case 2: spi_state = 3; sd_cmd_arg |= (spi_indata << 16); break;
-                    case 3: spi_state = 4; sd_cmd_arg |= (spi_indata << 8);  break;
-                    case 4: spi_state = 5; sd_cmd_arg |= spi_indata; break;
-                    case 5: {
+                    spi_phase++;
+                }
+                else {
+                    printf("SPI Illegal Write #1"); exit(1);
+                }
 
-                        // OK: ответ на комманду
-                        spi_odata = 0x00;
+                break;
+            }
 
-                        switch (spi_command) {
+            // Информация о SDHC поддержке
+            case 3: {
 
-                            // INIT
-                            case 0x00:
+                if (data == 0xFF) {
 
-                                spi_state = 6;
-                                spi_odata = 0x01;
-                                break;
-
-                            case 0x08: spi_state = 7; break;
-
-                            // ACMD
-                            case 0x37: spi_state = 6; break;
-                            case 0x29: spi_state = 6; break;
-                            case 0x3A: spi_state = 11; break;
-
-                            // READ
-                            case 0x11: spi_state = 15; break;
-
-                            default: printf("UNK: %02x\n", spi_command); exit(1);
-                        }
-
-                        break;
+                    if (spi_phase == 0) {
+                        spi_data = 0x00;
+                    } else if (spi_phase == 1) {
+                        spi_data = 0xC0;
+                    } else if (spi_phase < 4) {
+                        spi_data = 0xFF;
+                    } else {
+                        spi_data = 0xFF;
+                        spi_status = 0;
                     }
 
-                    // Инициализация без до-параметров
-                    case 6: spi_state = 0; spi_odata = 0xFF; break;
+                    spi_phase++;
 
-                    // 48h CMD-8
-                    case 7: case 8: case 9: spi_state = spi_state + 1; spi_odata = 0xff; break;
-                    case 10: spi_state = 0; spi_odata = 0xAA; break;
+                } else {
+                    printf("SPI Illegal Write #2"); exit(1);
+                }
 
-                    // 3A
-                    case 11: spi_state = 12; spi_odata = 0xc0; break;
-                    case 12: case 13: spi_state = spi_state + 1; spi_odata = 0xff; break;
-                    case 14: spi_state = 0; break;
+                break;
+            }
 
-                    // READ
-                    case 15: spi_state = 16; spi_odata = 0xFE; sd_index = 0; break;
-                    // Читать сектор
-                    case 16: {
+            // Чтение с диска
+            case 4: {
 
-                        if (sdcard) {
+                if (spi_phase == 0) {
 
-                            fseek(sdcard, 512*sd_cmd_arg + sd_index, SEEK_SET);
-                            sd_index++;
-                            fread(&bchar, 1, 1, sdcard);
-                            spi_odata = bchar;
+                    spi_data = 0x00;
+                    spi_file = fopen("sd.img", "ab+");
+                    if (spi_file == NULL) { printf("Error open file\n"); exit(0); }
+                    fseek(spi_file, 512 * spi_lba, SEEK_SET);
+                    (void) fread(spi_sector, 1, 512, spi_file);
+                    fclose(spi_file);
 
-                        } else {
-                            spi_odata = 0xff;
-                        }
+                } else if (spi_phase == 1) {
+                    spi_data = 0xFE;
+                } else if (spi_phase < 514) {
+                    spi_data = spi_sector[spi_phase - 2];
+                }
 
-                        // Последний байт и выход
-                        if (sd_index == 512) {
-                            spi_state = 0;
-                        }
+                spi_phase++;
+                if (spi_phase == 514) {
 
-                        break;
+                    spi_status = 0;
+                    spi_resp   = 0xFF;
+                }
+
+                break;
+            }
+
+            // Запись на диск
+            case 5: {
+
+                if (spi_phase == 0) {
+                    spi_data = 0x00; // ACK
+
+                } else if (spi_phase == 1) {
+
+                    if (data != 0xFE) {
+                        printf("Illegal opcode (non FE)\n"); exit(1);
                     }
+
+                } else if (spi_phase < 514) {
+                    spi_sector[spi_phase - 2] = data;
+
+                } else if (spi_phase == 516) {
+                    spi_data = 0x05; // ACK
+
+                } else if (spi_phase < 520) {
+                    spi_data = 0xFF;
+                }
+
+                spi_phase++;
+
+                // Окончание программирования
+                if (spi_phase == 520) {
+
+                    spi_status = 0;
+                    spi_resp   = 0x00;
+
+                    // Запись новых данных на диск
+                    spi_file = fopen("sd.img", "r+b");
+                    if (spi_file == NULL) { printf("Error open file\n"); exit(0); }
+                    fseek(spi_file, 512 * spi_lba, SEEK_SET);
+                    (void) fwrite(spi_sector, 1, 512, spi_file);
+                    fclose(spi_file);
+                }
+
+                break;
+            }
+
+            // STATUS [2 Byte 00 00]
+            case 6: {
+
+                if (data == 0xFF) {
+
+                    if (spi_phase == 1)
+                        spi_status = 0;
+
+                    spi_data = 0x00;
+                    spi_phase++;
+                }
+                else {
+                    printf("SPI Illegal Write #1"); exit(1);
                 }
             }
         }
-
-        spi_sclk = SPI_SCLK;
     }
 };
